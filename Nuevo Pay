@@ -1,0 +1,194 @@
+Payload-Free Package Creator.app revisado
+Trabajo mucho con paquetes sin carga útil y, aunque tengo un proceso para crearlos cuando los necesitaba con pkgbuild , este enfoque requiere un poco de trabajo de configuración. Para ayudar a que el proceso de creación de paquetes sea más conveniente, desarrollé Payload-Free Package Creator.app , una aplicación de Automator que permitirá seleccionar un script existente y crear un paquete sin carga útil que ejecute el script seleccionado.
+
+Sin embargo, esta herramienta se ha utilizado PKGBUILD 's  -nopayload función, lo que crea un paquete que no deja detrás un recibo instalador. Este es el comportamiento previsto según Apple , pero no dejar un recibo puede dificultar la determinación de si un paquete de instalación se ha ejecutado en una máquina en particular. Esto es especialmente problemático para Munki , que usa recibos junto con otros métodos para rastrear el estado de la instalación .
+
+Si bien no uso Munki, he escuchado de varias personas que sí lo hacen y que se habían encontrado con el problema de no recibir recibos cuando intentaron usar paquetes sin carga útil generados por Payload-Free Package Creator.app con Munki.
+
+Entonces el problema fue este:
+
+Quería crear paquetes sin carga útil que solo ejecuten scripts y no instalen archivos.
+Quería tener un recibo de instalador.
+El método integrado de Apple para generar paquetes sin carga útil con pkgbuild no proporcionaba recibos .
+Pensé que necesitaba proporcionar una carga útil a pkgbuild para generar un paquete que proporcionaría recibos.
+Proporcionar una carga útil significaba que estaba instalando archivos, que es lo que no quería hacer.
+El asunto había estado ahí por un tiempo y no veía una buena manera de solucionarlo.
+
+Afortunadamente, estaba equivocado sobre el punto 4. Greg Neagle documentó recientemente que se puede crear un paquete con pkgbuild que, aunque técnicamente no esté libre de carga útil, actuará como tal . La clave es crear un directorio vacío y el conjunto PKGBUILD 's -root opción para buscar allí los archivos. PKGBUILD 's -root opción se utiliza para contar PKGBUILD qué archivos de paquete, pero ya que no habrá ningún archivo en un directorio vacío, el paquete se instale ningún archivo en el MAC de destino.
+
+Ahí es donde me había equivocado en el punto 4: pensé que tenía que darle a pkgbuild algo  para instalar a fin de construir un paquete con un recibo, pero resulta que pkgbuild construirá un paquete con éxito mientras usa un directorio de carga útil vacío. Esta información me permitió conciliar los puntos 1 y 2, lo que resolvió el problema.
+
+Con esta nueva información, pude actualizar Payload-Free Package Creator.app y me complace anunciar que tiene dos características nuevas:
+
+Numeración de versiones
+Los paquetes generados por Payload-Free Package Creator.app dejarán recibos después de la instalación.
+Para obtener más detalles, consulte el salto a continuación.
+
+
+Uso de Payload-Free Package Creator.app
+
+ 
+
+1. Si es necesario, descargue el archivo Payload-Free_Package_Creator_Application.zip del directorio de la aplicación en mi repositorio de GitHub .
+
+2. Una vez descargado y descomprimido, haga doble clic en la aplicación Payload-Free Package Creator .
+
+3. Se le pedirá que seleccione la secuencia de comandos que desea utilizar como parte de la creación del paquete de instalación.
+
+Captura de pantalla 2015 05 21 a las 7 52 25 AM
+
+ 
+
+4. Una vez que haya seleccionado el script, se le pedirá que nombre el paquete de instalación. De forma predeterminada, el nombre introducido será Paquete de instalación gratuito de carga útil.
+
+Captura de pantalla 2015 05 21 a las 7 52 44 AM
+
+ 
+
+Este nombre se puede cambiar según se desee.
+
+Captura de pantalla 2015 05 21 a las 7 52 57 AM
+
+ 
+
+5. Una vez que haya ingresado un nombre para el paquete de instalación, se le pedirá un identificador de paquete. De forma predeterminada, el nombre introducido será com.github.payload_free.
+
+Captura de pantalla 2015 05 21 a las 7 53 20 AM
+
+ 
+
+Este nombre debería cambiarse para que sea único.
+
+Captura de pantalla 2015 05 21 a las 7 53 42 AM
+
+ 
+
+6. Una vez que haya ingresado un identificador para el paquete de instalación, se le pedirá un número de versión. De forma predeterminada, el valor introducido será 1.0 .
+
+Captura de pantalla 2015 05 21 a las 7 53 51 AM
+
+ 
+
+Este valor debe cambiarse para que sea único.
+
+Captura de pantalla 2015 05 21 a las 7 54 06 AM
+
+ 
+
+7. Una vez que se hayan establecido el nombre del paquete, el identificador del paquete y el número de versión del paquete, Payload-Free Package Creator.app solicitará un nombre de usuario y contraseña de administrador.
+
+Captura de pantalla 2015 05 21 a las 7 54 30 AM
+
+ 
+
+8. Una vez que se proporcionen el nombre de usuario y la contraseña de administrador, Payload-Free Package Creator.app creará el paquete de instalación y le avisará cuando haya terminado.
+
+Captura de pantalla 2015 05 21 a las 7 54 43 AM
+
+ 
+
+9. Haga clic en Aceptar cuando se le solicite y se abrirá una nueva ventana del Finder que mostrará el paquete de instalación recién creado.
+
+Captura de pantalla 2015 05 21 a las 7 55 44 AM
+
+Captura de pantalla 2015 05 21 a las 7 55 50 AM
+
+ 
+
+10. Payload-Free Package Creator.app se cerrará automáticamente.
+
+ 
+
+Cómo funciona Payload-Free Package Creator.app
+
+Payload-Free Package Creator.app es una aplicación de Automator que usa AppleScript , scripts de shell y pkgbuild  detrás de escena para crear paquetes de instalación que solo ejecutan scripts pero que dejarán recibos. Cuando se selecciona un script, se lleva a cabo el siguiente proceso:
+
+La secuencia de comandos se copia en / tmp y se renombra a postinstall , para que coincida con el nombre que pkgbuild espera para una secuencia de comandos posterior a la instalación.
+Después de elegir el nombre del paquete, el identificador del paquete y el número de versión del paquete, se comprueba / tmp para asegurarse de que no haya un directorio existente con el mismo nombre que el elegido. Si se encuentra un directorio coincidente, se elimina.
+Se crea un nuevo directorio en / tmp que coincide con el nombre elegido del paquete.
+A continuación, se crean un directorio de scripts y un directorio vacío llamado nopayload dentro de / tmp / package_name_here . El nopayload directorio proporciona el directorio vacío para PKGBUILD 's -root opción.
+El script postinstall se copia en / tmp / package_name_here / scripts
+El paquete es construido por pkgbuild usando el script postinstall almacenado en / tmp / package_name_here / scripts
+El paquete terminado se almacena en / tmp / package_name_here y se le solicita al usuario que el proceso haya finalizado.
+Una vez que se notifica al usuario y hace clic en Aceptar, se abre una nueva ventana del Finder para / tmp / package_name_here .
+El AppleScript utilizado para crear el paquete sin carga útil como parte del trabajo de Automator se encuentra a continuación:
+
+en  ejecución {entrada, parámetros}
+	
+	- este ciclo de repetición evita que se envíen cadenas vacías para el valor del nombre del paquete
+	establecer  q  en  0
+	repetir  mientras q es  0
+		establezca el  resultado  en el  texto devuelto por ( cuadro de diálogo de visualización  " Introduzca un nombre para su paquete de instalación sin carga útil: " respuesta predeterminada " Paquete de instalación sin carga útil " )
+		si el  resultado  no es  ""  entonces
+			establecer  pkgname  como  resultado
+			establecer  q  en  1
+		terminara si
+	fin de repetir
+	- este ciclo de repetición evita que se envíen cadenas vacías para el valor del identificador del paquete
+	establecer  q  en  0
+	repetir  mientras q es  0
+		establecer el  resultado  en el  texto devuelto de ( cuadro de diálogo de visualización  " Introduzca un identificador de paquete: " respuesta predeterminada " com.github.payload_free " )
+		si el  resultado  no es  ""  entonces
+			establecer  pkgid  como  resultado
+			establecer  q  en  1
+		terminara si
+	fin de repetir
+	
+	- este ciclo de repetición evita que se envíen cadenas vacías para el valor del identificador de versión
+	establecer  q  en  0
+	repetir  mientras q es  0
+		establezca el  resultado  en el  texto devuelto de ( cuadro de diálogo de visualización  " Introduzca un identificador de versión: " respuesta predeterminada " 1.0 " )
+		si el  resultado  no es  ""  entonces
+			establecer  pkgvers  como  resultado
+			establecer  q  en  1
+		terminara si
+	fin de repetir
+	
+	- Establecer el script postinstall para que sea ejecutable
+	
+	hacer el script de shell  " chmod a + x / tmp / postinstall "  con privilegios de administrador
+	
+	- Elimine cualquier directorio de compilación existente que tenga el mismo nombre que el nuevo paquete sin carga útil
+	
+	hacer el script de shell  " rm -rf / tmp / "  y la  forma citada  de pkgname &  " / "  con privilegios de administrador
+	
+	- Cree los directorios de compilación para el paquete sin carga útil
+	
+	hacer el script de shell  " mkdir / tmp / "  y la  forma citada  de pkgname &  ""  con privilegios de administrador
+	hacer el script de shell  " mkdir / tmp / "  y la  forma citada  de pkgname &  " / scripts "  con privilegios de administrador
+	hacer el script de shell  " mkdir / tmp / "  y la  forma citada  de pkgname &  " / nopayload "  con privilegios de administrador
+	
+	- Mueva el script postinstall al directorio de compilación correcto
+	
+	hacer el script de shell  " mv / tmp / postinstall / tmp / "  y la  forma citada  de pkgname &  " / scripts "  con privilegios de administrador
+	
+	- Cree el paquete sin carga útil
+	
+	hacer el script de shell  " pkgbuild –identifier "  y la  forma  entre comillas de pkgid &  " –version "  y la  forma  entre comillas de pkgvers &  " –root / tmp / "  & la  forma  entre comillas de pkgname &  " / nopayload –scripts / tmp / "  y la  forma entre comillas  de pkgname &  " / scripts / tmp / "  &  forma citada  de pkgname &  " / "  & forma citada  depkgname y  " .pkg "  con privilegios de administrador
+	
+	- Mostrar diálogo de que se ha creado el paquete sin carga útil
+	
+	mostrar alerta ((pkgname) como  cadena ) &  " .pkg ha sido creado " .
+	
+	- Abra una nueva ventana del Finder que muestra el nuevo paquete
+	
+	hacer el script de shell  " open / tmp / "  y la  forma citada  de pkgname &  ""
+	
+	retorno de entrada
+fin de  carrera
+ver crudo
+gistfile1.applescript
+alojado con ❤por GitHub
+ 
+
+Todos los componentes y scripts de Payload-Free Package Creator están disponibles en mi repositorio de GitHub:
+
+https://github.com/rtrouton/Payload-Free-Package-Creator
+
+Los archivos de flujo de trabajo de Automator y AppleScript también están disponibles a través del enlace anterior si desea crear un Creador de paquetes sin carga útil personalizado para su propio entorno.
+
+ 
+
+Un instalador de la última versión de Payload-Free Package Creator.app está disponible a través del siguiente enlace:
+
+https://github.com/rtrouton/Payload-Free-Package-Creator/releases/latest
